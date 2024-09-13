@@ -1,0 +1,391 @@
+---
+title: "Time Series Analysis - Semester Project"
+author: "Esther Waweru  - 171444"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Electric Production Forecast
+
+### Introduction
+
+The dataset under analysis pertains to the industrial production of electric and gas utilities in the United States, spanning the years 1985 to 2018. This monthly production output data provides a comprehensive overview of the energy sector's performance over more than three decades. By examining this dataset, we aim to uncover trends, seasonal patterns, and other significant characteristics that can inform energy policy, operational planning, and future projections. This analysis is crucial for understanding the historical production dynamics and making informed decisions for future energy production and distribution
+
+
+### Objectives
+
+The primary objectives of this analysis are as follows:
+
+1.  **Trend Analysis**:  To identify and analyze long-term trends in the production of electric and gas utilities.
+2.  **Seasonality Detection**: To detect and understand seasonal patterns in the production data.
+3.  **Stationarity Check**: To determine if the time series data is stationary or if it requires transformation.
+4.  **Model Building**: To develop a suitable time series forecasting model that can accurately predict future production values.
+5.  **Insights and Recommendations**: To derive actionable insights and recommendations based on the analysis and model outcomes.
+
+
+### Steps taken
+
+To achieve these objectives, the following steps will be undertaken:
+
+a.  **Data Loading and Preparation:**
+
+    *  Import the dataset and parse the date column to ensure proper time series formatting.
+    *  Perform initial exploratory data analysis (EDA) to understand the structure and summary statistics of the data.
+    
+b.  **Visualization:**
+
+    *  Plot the time series data to visualize the overall trends and seasonal patterns.
+    *  Generate decomposition plots to separate the time series into trend, seasonal, and residual components.
+
+c.  **Stationarity Testing:**
+
+    *  Conduct the Augmented Dickey-Fuller (ADF) test to check for stationarity in the time series data.
+    *  If the series is non-stationary, apply differencing or other transformations to achieve stationarity.
+
+d.  **Autocorrelation Analysis:**
+
+    *  Plot the Autocorrelation Function (ACF) and Partial Autocorrelation Function (PACF) to identify significant lags and    determine the potential parameters for time series modeling.
+
+
+e.  **Model Development:**
+
+    *  Use the identified parameters to develop an ARIMA (AutoRegressive Integrated Moving Average) model.
+
+f.  **Model Validation:**
+
+    *  Split the data into training and testing sets to validate the model's predictive performance.
+    *  Evaluate the model using metrics such as Mean Absolute Error (MAE), Mean Squared Error (MSE), and Root Mean Squared Error (RMSE).
+
+g.  **Forecasting:**
+
+    *  Use the validated model to forecast future production values for a specified horizon.
+    *  Plot the forecasted values along with confidence intervals to visualize the predictions.
+
+h.  **Insights and Recommendations:**
+
+    *  Interpret the results of the analysis and forecasts.
+    *  Provide recommendations based on observed trends, seasonal patterns, and forecasted future production.
+    
+    
+*  Import and load libraries
+```{r}
+library(TSstudio)
+library(dplyr)
+library(ggplot2)
+library(forecast)
+library(tseries)
+library(urca)
+library(zoo)
+library(summarytools)
+```
+
+## Data Loading and Preparation
+
+*  Read in the data
+
+```{r}
+setwd('C://Users//pc//Documents//Masters_Statistical_Sciences//Module 3//Time Series Analysis//Semester Project//Dataset')
+
+data <- read.csv('Electric_production.csv')
+head(data)
+```
+
+
+
+*  Data Preparation
+
+```{r}
+#Change column names
+colnames(data) <- c("date","value")
+
+#Convert data column to date datatype
+data$date <- as.Date(data$date, format="%m/%d/%Y")
+
+str(data)
+```
+
+
+```{r}
+descr(data)
+```
+
+Our data ranges from 1985-01-01 to 2018-01-01
+
+The mean for electric production is 88.85 units.
+
+The standard deviation is 15.39 showing variability around the mean
+
+
+
+```{r}
+#Create Time series object
+
+data_ts = ts(data = data$value,start = c(1985,1),frequency = 12) 
+
+glimpse(data_ts)
+```
+
+```{r}
+start(data_ts)
+```
+
+```{r}
+end(data_ts)
+```
+
+```{r}
+frequency(data_ts)
+```
+
+```{r}
+#check missing values
+colSums(is.na(data))
+```
+
+No missing values
+
+
+##  Visualisation
+
+
+*  Visualisation
+
+```{r}
+# Plot the time-series graph
+plot(data_ts,main = "Electricity Production Over the Years",
+        ylab = "Electricy Production')",
+        xlab = "Year")
+
+abline(reg=lm(data_ts~time(data_ts)))
+```
+
+There is a general upward trend in the production output indicating gradual increase in the production of electric and gas utilities over the years.
+
+There are noticeable fluctuations in the production levels which may be caused by various economic or environmental factors.
+
+There is seasonality as production seems to peak and dip at regular intervals suggesting that certain times of years see regular higher or lower production outputs.
+
+
+* Decomposition
+
+```{r}
+#Decompose the series into its three components: trend,seasonal, residual
+
+data_decomp <- decompose(data_ts)
+
+plot(data_decomp, )
+```
+
+The top panel shows the overall production levels from 1985 to 2018, with clear visuals indications of trends,seasonal patterns and some fluctuations.
+
+In the second panel which shows the trend, there is a noticeable upward trend in the production levels indicating a steady growth in production of electric and gas utilities. It smooths out the short term fluctuations and highlights the underlying direction of the series.
+
+The third panel displays the seasonal component revealing the consistent cyclic patterns that repeat every year, with peaks and troughs at similar times each year.
+
+The bottom panel shows the residual component which is the remaining part of the series after removal of the trend and seasonal components.
+
+```{r}
+boxplot(data_ts~cycle(data_ts, xlab="Date", ylab = "Electricity Production", main = "Monthly electricity production boxplot from 1985-2018"))
+```
+
+Electricity Production peaks in month of January as compared to the other months over the years.
+
+##  Check for stationarity
+
+*  Augmented Dickey Fuller Test
+
+```{r}
+#Augmented Dickey Fuller Test
+
+adf_test <- adf.test(data_ts)
+print(adf_test)
+
+```
+
+**The Hypothesis: **
+
+$H_0$ : The time series data is not stationary
+
+$H_1$ : The time series data is stationary
+
+The p-value is less than 0.05  hence we reject the null Hypothesis and conclude that our series is stationary.
+
+
+*  Kwiatkowski-Philips-Schmidt-Shin (KPSS)
+
+```{r}
+#Kwiatkowski-Philips-Schmidt-Shin (KPSS)
+
+kpss_test <- kpss.test(data_ts)
+
+print(kpss_test)
+```
+
+**The Hypothesis: **
+
+$H_0$ : The time series data is stationary
+
+$H_1$ : The time series data is not stationary
+
+The p-value is less than 0.05  hence we reject the null Hypothesis and conclude that our series is non-stationary.
+
+
+ADF concludes stationary and KPSS concludes non-stationary. This shows series is difference stationary. We perform differencing to make series stationary.
+
+
+*  Differencing
+
+```{r}
+#differencing the series
+
+diff_data_ts <- diff(data_ts)
+
+#Retest for staionarity
+adf_test_2 <- adf.test(diff_data_ts)
+print(adf_test_2)
+
+
+kpss_test_2 <- kpss.test(diff_data_ts)
+print(kpss_test_2)
+```
+
+The p-value for KPSS-test is greater than 0.05 hence we fail to reject the null hypothesis and conclude that our series is stationary.
+
+
+```{r}
+decomp <- decompose(diff_data_ts)
+
+plot(decomp, )
+```
+
+
+## Forecasting
+
+*  **Forecasting Models**
+
+1.  **Holt-Winters exponential smoothing**
+
+```{r}
+#Apply the Holt-Winters Seasonal Model with additive seasonality
+hw_model_add <- hw(diff_data_ts, h = 24 , seasonal = "additive")
+# Plot the forecasts from the additive model
+plot(hw_model_add, main="Holt-Winters Additive Seasonal Model Forecast")
+
+```
+
+```{r}
+accuracy(hw_model_add)
+```
+
+```{r}
+#check for autocorrelation
+Box.test(hw_model_add$residuals,type = "Ljung-Box")
+```
+
+**The Hypothesis: **
+
+$H_0$ : The residuals are independently distributed (no significant autocorrelation).
+
+$H_1$ : The residuals are not independently distributed (significant autocorrelation present).
+
+Since p-value is less than 0.05, we reject the null hypothesis and conclude that the residuals are not independently distributed and that the model may be inadequate
+
+2.  **Moving Average**
+
+```{r}
+acf(diff_data_ts)
+```
+
+
+
+```{r}
+pacf(diff_data_ts)
+```
+
+```{r}
+moving_average <- arima(diff_data_ts,order = c(0,0,1))
+summary(moving_average)
+
+```
+
+
+```{r}
+#check for autocorrelation
+Box.test(moving_average$residuals,type = "Ljung-Box")
+```
+
+Since p-value is greater than 0.05, we fail to reject the null hypothesis and conclude that the residuals are independently distributed. 
+
+```{r}
+#Forecast using MA model
+ma_forecast <- forecast :: forecast(moving_average,h=24)
+plot(ma_forecast)
+```
+
+
+3.  **Autoregressive (AR) model**
+
+```{r}
+ar_model <- arima(diff_data_ts, order = c(1,0,0))
+summary(ar_model)
+```
+
+```{r}
+#check for autocorrelation
+Box.test(ar_model$residuals,type = "Ljung-Box")
+```
+
+Since p-value is less than 0.05, we reject the null hypothesis and conclude that the residuals are not independently distributed.
+
+```{r}
+#Forecasting
+
+ar_forecast <- forecast::forecast(ar_model, h = 24)
+plot(ar_forecast)
+```
+
+
+4.  **Autoregressive Integrated Moving Average (ARIMA) Model**
+
+```{r}
+arima_model <- arima(diff_data_ts, order = c(1,1,1))
+summary(arima_model)
+```
+
+```{r}
+#check for autocorrelation
+Box.test(arima_model$residuals,type = "Ljung-Box")
+```
+
+Since p-value is greater than 0.05, we fail to reject the null hypothesis and conclude that the residuals are independently distributed.
+
+```{r}
+arima_forecast <- forecast::forecast(arima_model,h=24)
+plot(arima_forecast)
+```
+
+
+5. SARIMA
+
+```{r}
+sarima_model <- arima(diff_data_ts, order = c(1, 1, 1), seasonal = list(order = c(1, 1, 1),period = 12))
+summary(sarima_model)
+```
+
+```{r}
+#check for autocorrelation
+Box.test(sarima_model$residuals,type = "Ljung-Box")
+```
+
+Since p-value is greater than 0.05, we fail to reject the null hypothesis and conclude that the residuals are independently distributed.
+
+```{r}
+sarima_forecast <- forecast::forecast(sarima_model,h=24)
+plot(sarima_forecast)
+```
+
+
